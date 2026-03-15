@@ -1,0 +1,209 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  user
+  admin
+}
+
+enum UserStatus {
+  active
+  disabled
+}
+
+enum MembershipStatus {
+  active
+  expired
+}
+
+enum PackageDurationType {
+  one_month   @map("1_month")
+  three_month @map("3_month")
+}
+
+enum PaymentOrderStatus {
+  pending
+  paid
+  failed
+  closed
+}
+
+enum MessageRole {
+  user
+  assistant
+  system
+}
+
+enum MessageStatus {
+  streaming
+  success
+  failed
+}
+
+model User {
+  id             BigInt          @id @default(autoincrement()) @db.BigInt
+  username       String          @unique(map: "uk_username") @db.VarChar(50)
+  role           UserRole        @default(user)
+  status         UserStatus      @default(active)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.DateTime(0)
+  auth           UserAuth?
+  memberships    Membership[]
+  paymentOrders  PaymentOrder[]
+  conversations  Conversation[]
+  operationLogs  OperationLog[]
+
+  @@index([role], map: "idx_role")
+  @@map("users")
+}
+
+model UserAuth {
+  userId       BigInt   @id @map("user_id") @db.BigInt
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  lastLoginAt  DateTime? @map("last_login_at") @db.DateTime(0)
+  lastLoginIp  String?  @map("last_login_ip") @db.VarChar(64)
+  createdAt    DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.DateTime(0)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_auths")
+}
+
+model Membership {
+  id            BigInt            @id @default(autoincrement()) @db.BigInt
+  userId        BigInt            @map("user_id") @db.BigInt
+  status        MembershipStatus
+  startAt       DateTime          @map("start_at") @db.DateTime(0)
+  expireAt      DateTime          @map("expire_at") @db.DateTime(0)
+  sourceOrderId BigInt?           @unique(map: "uk_membership_source_order") @map("source_order_id") @db.BigInt
+  createdAt     DateTime          @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt     DateTime          @updatedAt @map("updated_at") @db.DateTime(0)
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceOrder   PaymentOrder?     @relation(fields: [sourceOrderId], references: [id], onDelete: SetNull)
+
+  @@index([userId], map: "idx_membership_user_id")
+  @@index([expireAt], map: "idx_membership_expire_at")
+  @@map("memberships")
+}
+
+model MembershipPackage {
+  id            BigInt              @id @default(autoincrement()) @db.BigInt
+  name          String              @db.VarChar(100)
+  price         Decimal             @db.Decimal(10, 2)
+  durationType  PackageDurationType @map("duration_type")
+  description   String?             @db.Text
+  isActive      Boolean             @default(true) @map("is_active")
+  sortOrder     Int                 @default(0) @map("sort_order")
+  createdAt     DateTime            @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt     DateTime            @updatedAt @map("updated_at") @db.DateTime(0)
+  paymentOrders PaymentOrder[]
+
+  @@map("membership_packages")
+}
+
+model PaymentConfig {
+  id             BigInt   @id @default(autoincrement()) @db.BigInt
+  merchantId     String?  @map("merchant_id") @db.VarChar(128)
+  appId          String?  @map("app_id") @db.VarChar(128)
+  appKey         String?  @map("app_key") @db.VarChar(255)
+  notifyUrl      String?  @map("notify_url") @db.VarChar(255)
+  gatewayUrl     String?  @map("gateway_url") @db.VarChar(255)
+  signType       String?  @map("sign_type") @db.VarChar(32)
+  sandboxEnabled Boolean  @default(true) @map("sandbox_enabled")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.DateTime(0)
+
+  @@map("payment_configs")
+}
+
+model PaymentOrder {
+  id                BigInt             @id @default(autoincrement()) @db.BigInt
+  orderNo           String             @unique(map: "uk_order_no") @map("order_no") @db.VarChar(64)
+  userId            BigInt             @map("user_id") @db.BigInt
+  packageId         BigInt             @map("package_id") @db.BigInt
+  amount            Decimal            @db.Decimal(10, 2)
+  status            PaymentOrderStatus
+  thirdPartyOrderNo String?            @map("third_party_order_no") @db.VarChar(128)
+  paidAt            DateTime?          @map("paid_at") @db.DateTime(0)
+  rawCallback       String?            @map("raw_callback") @db.Text
+  createdAt         DateTime           @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.DateTime(0)
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  package           MembershipPackage  @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  membership        Membership?
+
+  @@index([userId], map: "idx_payment_order_user_id")
+  @@index([status], map: "idx_payment_order_status")
+  @@map("payment_orders")
+}
+
+model ModelConfig {
+  id            BigInt         @id @default(autoincrement()) @db.BigInt
+  name          String         @db.VarChar(100)
+  code          String         @unique(map: "uk_model_code") @db.VarChar(100)
+  apiUrl        String         @map("api_url") @db.VarChar(255)
+  apiKey        String?        @map("api_key") @db.VarChar(255)
+  isActive      Boolean        @default(true) @map("is_active")
+  sortOrder     Int            @default(0) @map("sort_order")
+  remark        String?        @db.Text
+  createdAt     DateTime       @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.DateTime(0)
+  conversations Conversation[]
+
+  @@map("model_configs")
+}
+
+model Conversation {
+  id            BigInt       @id @default(autoincrement()) @db.BigInt
+  userId        BigInt       @map("user_id") @db.BigInt
+  modelId       BigInt       @map("model_id") @db.BigInt
+  title         String?      @db.VarChar(255)
+  lastMessageAt DateTime?    @map("last_message_at") @db.DateTime(0)
+  createdAt     DateTime     @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.DateTime(0)
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  model         ModelConfig  @relation(fields: [modelId], references: [id], onDelete: Restrict)
+  messages      Message[]
+
+  @@index([userId], map: "idx_conversation_user_id")
+  @@index([modelId], map: "idx_conversation_model_id")
+  @@map("conversations")
+}
+
+model Message {
+  id             BigInt        @id @default(autoincrement()) @db.BigInt
+  conversationId BigInt        @map("conversation_id") @db.BigInt
+  role           MessageRole
+  content        String        @db.LongText
+  sequence       Int
+  tokenUsage     Int?          @map("token_usage")
+  latencyMs      Int?          @map("latency_ms")
+  status         MessageStatus
+  createdAt      DateTime      @default(now()) @map("created_at") @db.DateTime(0)
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId], map: "idx_message_conversation_id")
+  @@index([conversationId, sequence], map: "idx_message_conversation_sequence")
+  @@map("messages")
+}
+
+model OperationLog {
+  id        BigInt   @id @default(autoincrement()) @db.BigInt
+  userId    BigInt?  @map("user_id") @db.BigInt
+  module    String   @db.VarChar(50)
+  action    String   @db.VarChar(50)
+  detail    String?  @db.Text
+  ip        String?  @db.VarChar(64)
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId], map: "idx_operation_log_user_id")
+  @@map("operation_logs")
+}
