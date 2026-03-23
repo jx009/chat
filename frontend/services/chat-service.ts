@@ -2,7 +2,7 @@ import { ApiError, apiRequest } from "./api-client";
 import { SendChatInput, SendChatResult } from "@/types/chat";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001/api";
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api";
 
 export function sendChatMessage(accessToken: string, input: SendChatInput) {
   return apiRequest<SendChatResult>("/chat/send", {

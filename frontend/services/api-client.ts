@@ -1,7 +1,7 @@
 import { useAuthStore } from "@/stores/auth-store";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001/api";
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api";
 
 export type ApiResponse<T> = {
   code: number;
@@ -28,7 +28,11 @@ export async function apiRequest<TData>(
   path: string,
   options: RequestOptions = {},
 ): Promise<TData> {
-  const url = new URL(`${API_BASE_URL}${path}`);
+  const resolvedUrl = `${API_BASE_URL}${path}`;
+  const url = new URL(
+    resolvedUrl,
+    typeof window !== "undefined" ? window.location.origin : "http://localhost:3000",
+  );
 
   if (options.query) {
     Object.entries(options.query).forEach(([key, value]) => {

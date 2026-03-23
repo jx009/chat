@@ -1,0 +1,27 @@
+services:
+  frontend:
+    image: ${DOCKER_USERNAME}/chat-frontend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NODE_ENV: production
+      PORT: ${FRONTEND_CONTAINER_PORT:-3000}
+      BACKEND_INTERNAL_URL: http://backend:${BACKEND_PORT:-3001}
+    ports:
+      - "${FRONTEND_PORT:-3000}:${FRONTEND_CONTAINER_PORT:-3000}"
+
+  backend:
+    image: ${DOCKER_USERNAME}/chat-backend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: ${BACKEND_PORT:-3001}
+      APP_PREFIX: ${APP_PREFIX:-api}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:${FRONTEND_PORT:-3000}}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
