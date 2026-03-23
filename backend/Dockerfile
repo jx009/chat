@@ -22,6 +22,10 @@ FROM node:20-bookworm-slim AS runner
 
 WORKDIR /app
 
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl \
+  && rm -rf /var/lib/apt/lists/*
+
 ENV NODE_ENV=production
 ENV PORT=3001
 
@@ -32,4 +36,6 @@ COPY --from=builder /app/backend/dist ./backend/dist
 
 EXPOSE 3001
 
-CMD ["node", "backend/dist/main.js"]
+WORKDIR /app/backend
+
+CMD ["node", "dist/main.js"]
