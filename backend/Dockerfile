@@ -32,4 +32,4 @@ COPY --from=builder /app/backend/dist ./backend/dist
 
 EXPOSE 3001
 
-CMD ["node", "backend/dist/src/main.js"]
+CMD ["node", "backend/dist/main.js"]
